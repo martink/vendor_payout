@@ -294,6 +294,18 @@ sub getThumbnailUrl {
 
 #-------------------------------------------------------------------
 
+=head2 getVendorPayout ( )
+
+Returns the amount that should be payed to the vendor for this sku.
+
+=cut
+
+sub getVendorPayout {
+    return 0;
+}
+
+#-------------------------------------------------------------------
+
 =head2 getWeight ( )
 
 Returns 0. Needs to be overriden by subclasses.
