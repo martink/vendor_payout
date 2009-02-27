@@ -272,6 +272,7 @@ sub update {
         $newProperties->{ price             } = $sku->getPrice;       
         $newProperties->{ configuredTitle   } = $item->get('configuredTitle');
         $newProperties->{ quantity          } = $item->get('quantity');
+        $newProperties->{ vendorId          } = $sku->getVendorId;
         my $address = $item->getShippingAddress;
         $newProperties->{ shippingAddressId     } = $address->getId;
         $newProperties->{ shippingAddressName   } = $address->get('name');

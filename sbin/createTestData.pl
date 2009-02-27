@@ -15,7 +15,7 @@ our ($webguiRoot, $configFile, $help, $man);
 
 BEGIN {
     $webguiRoot = "..";
-    unshift (@INC, $webguiRoot."/lib");
+    push (@INC, $webguiRoot."/lib");
 }
 
 use strict;
