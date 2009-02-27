@@ -5,7 +5,7 @@ use Class::InsideOut qw{ :std };
 use WebGUI::Shop::Admin;
 use WebGUI::Exception::Shop;
 use WebGUI::International;
-
+use JSON qw{ encode_json };
 
 =head1 NAME
 
@@ -405,6 +405,20 @@ sub www_manage {
     return $console->render($output, $i18n->get("vendors"));
 }
 
+#-------------------------------------------------------------------
+sub www_payoutDataAsJSON {
+    my $class   = shift;
+    my $session = shift;
+    my $vendorId = $session->form->process('vendorId');
+
+    my $data = $session->db->buildArrayRefOfHashRefs(
+        "select * from transactionItem where vendorId=? order by lastUpdated",
+        [ $vendorId ],
+    );
+
+    $session->http->setMimeType( 'application/json' );
+    return encode_json( $data );
+}
 
 #-------------------------------------------------------------------
 sub www_managePayouts {
@@ -451,22 +465,41 @@ sub www_managePayouts {
 
     # For now just put everything in some inline html. If it'll stay like this, move 
     # this code into the while loop above.
-    my $output;
-    foreach my $vendor ( values %{ $vendors } ) {
-        $output .= '<h2>' . $vendor->{name}. ' - total amount: '. $vendor->{totalPayout} . '</h2>';
-        $output .= '<table border="1"><tr><td>item</td><td>price</td><td>qty</td><td>%</td><td>payout</td><td>status</td></tr>';
+    $session->style->setScript('/extras/yui/build/yahoo-dom-event/yahoo-dom-event.js', {type=>'text/javascript'});
+    $session->style->setScript('/extras/yui/build/dom/dom-min.js', {type=>'text/javascript'});
+    $session->style->setScript('/extras/yui/build/element/element-beta-min.js', {type=>'text/javascript'});
+    $session->style->setScript('/extras/yui/build/connection/connection-min.js', {type=>'text/javascript'});
+    $session->style->setScript('/extras/yui/build/json/json-min.js', {type=>'text/javascript'});
+    $session->style->setScript('/extras/yui/build/datatable/datatable.js', {type=>'text/javascript'});
+    $session->style->setScript('/extras/yui/build/datasource/datasource-min.js', {type=>'text/javascript'});
 
-        foreach my $item ( @{ $vendor->{ itemLoop }  } ) {
-            $output .= '<tr><td>';
-            $output .= 
-                join    '</td><td>', 
-                map     { $item->{$_} } 
-                        qw{ configuredTitle price quantity vendorPayoutPercentage vendorPayoutAmount vendorPayoutStatus }
-                ;
-            $output .= '</td></tr>';
-        }
-        $output .= '</table>';
-    }
+
+    my $dataDef = [
+        { key => 'configuredTitle',     label => 'Item'             },
+        { key => 'price',               label => 'Price'            },
+        { key => 'quantity',            label => 'Qty'              },
+        { key => 'vendorPayoutAmount',  label => 'Payout'           },
+        { key => 'vendorPayoutStatus',  label => 'Payout status'    },
+    ];
+    my $dataDefJSON = encode_json( $dataDef );
+
+    my $output = qq{<script type="text/javascript">var vpDataDef = $dataDefJSON;</script>};
+
+    foreach my $vendor ( values %{ $vendors } ) {
+        my $id  = "vp_$vendor->{vendorId}";
+        $id =~ tr/-/_/;
+        my $url = $session->url->page('shop=vendor;func=payoutDataAsJSON;vendorId='.$vendor->{vendorId});
+
+        $output .= '<h2>' . $vendor->{name}. ' - total amount: '. $vendor->{totalPayout} . '</h2>';
+        $output .= qq|\n<div id="$id"></div>\n|;
+        $output .= 
+<<EOJS;
+            <script type="text/javascript">
+                var ds_$id  = new YAHOO.util.XHRDataSource( '$url', { responseType : YAHOO.util.DataSource.TYPE_JSON } );
+                var vpt_$id = new YAHOO.widget.DataTable( '$id', vpDataDef, ds_$id );
+            </script>
+EOJS
+    }        
 
     my $console = WebGUI::Shop::Admin->new($session)->getAdminConsole;
     return $console->render($output, 'Vendor payout'); #$i18n->get("vendors"));
