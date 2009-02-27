@@ -406,4 +406,71 @@ sub www_manage {
 }
 
 
+#-------------------------------------------------------------------
+sub www_managePayouts {
+    my $class   = shift;
+    my $session = shift;
+    my $vendors = {};
+
+    my $sth = $session->db->read(
+        "select itemId from transactionItem "
+        ." where vendorId is not null and vendorId != ? and vendorPayoutStatus=?", 
+        [
+            'defaultvendor000000000',
+            'NotPayed',
+        ],
+    );
+
+    while (my $row = $sth->hashRef) {
+        my $item    = WebGUI::Shop::TransactionItem->newByDynamicTransaction( $session, $row->{ itemId } );
+        next unless defined $item;
+
+        my $sku     = $item->getSku;
+        next unless defined $sku;
+        
+        my $vendorId = $item->get('vendorId');
+
+        unless (exists $vendors->{ $vendorId }) {
+            my $vendor = WebGUI::Shop::Vendor->new( $session, $item->get('vendorId') );
+            $vendors->{ $vendorId } = $vendor->get;
+        }
+        my $vendor = $vendors->{ $vendorId };
+            
+        my $payoutAmount = $sku->getVendorPayout * $item->get('quantity');
+        $vendor->{ totalPayout } += $payoutAmount;
+
+        push @{ $vendor->{ itemLoop }  }, {
+            %{ $item->get },
+            # TODO: remove the line below
+            vendorPayoutPercentage  => $sku->get('vendorPayoutPercentage'),
+            vendorPayoutAmount      => $payoutAmount,
+        }
+    }
+
+    $sth->finish;
+
+    # For now just put everything in some inline html. If it'll stay like this, move 
+    # this code into the while loop above.
+    my $output;
+    foreach my $vendor ( values %{ $vendors } ) {
+        $output .= '<h2>' . $vendor->{name}. ' - total amount: '. $vendor->{totalPayout} . '</h2>';
+        $output .= '<table border="1"><tr><td>item</td><td>price</td><td>qty</td><td>%</td><td>payout</td><td>status</td></tr>';
+
+        foreach my $item ( @{ $vendor->{ itemLoop }  } ) {
+            $output .= '<tr><td>';
+            $output .= 
+                join    '</td><td>', 
+                map     { $item->{$_} } 
+                        qw{ configuredTitle price quantity vendorPayoutPercentage vendorPayoutAmount vendorPayoutStatus }
+                ;
+            $output .= '</td></tr>';
+        }
+        $output .= '</table>';
+    }
+
+    my $console = WebGUI::Shop::Admin->new($session)->getAdminConsole;
+    return $console->render($output, 'Vendor payout'); #$i18n->get("vendors"));
+
+}
+
 1;
