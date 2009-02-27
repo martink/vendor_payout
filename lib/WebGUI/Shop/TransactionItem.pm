@@ -289,7 +289,8 @@ sub update {
     }
     my @fields = (qw(assetId configuredTitle options shippingAddressId shippingTrackingNumber orderStatus
         shippingName shippingAddress1 shippingAddress2 shippingAddress3 shippingCity shippingState
-        shippingCountry shippingCode shippingPhoneNumber quantity price vendorId));
+        shippingCountry shippingCode shippingPhoneNumber quantity price vendorId 
+        vendorPayoutStatus vendorPayoutAmount));
     foreach my $field (@fields) {
         $properties{$id}{$field} = (exists $newProperties->{$field}) ? $newProperties->{$field} : $properties{$id}{$field};
     }
