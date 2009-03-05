@@ -410,14 +410,16 @@ sub www_payoutDataAsJSON {
     my $class   = shift;
     my $session = shift;
     my $vendorId = $session->form->process('vendorId');
+    my $limit   = $session->form->process('limit') || 100;
 
     my $data = $session->db->buildArrayRefOfHashRefs(
-        "select * from transactionItem where vendorId=? order by lastUpdated",
-        [ $vendorId ],
+        "select * from transactionItem where vendorId=? order by lastUpdated limit ?",
+        [ $vendorId, $limit ],
     );
 
     $session->http->setMimeType( 'application/json' );
-    return encode_json( $data );
+
+    return = JSON::to_json( { results => $data } );
 }
 
 #-------------------------------------------------------------------
@@ -465,13 +467,13 @@ sub www_managePayouts {
 
     # For now just put everything in some inline html. If it'll stay like this, move 
     # this code into the while loop above.
+    $session->style->setLink('/extras/yui/build/datatable/assets/skins/sam/datatable.css', {type=>'text/css', rel=>'stylesheet'});
     $session->style->setScript('/extras/yui/build/yahoo-dom-event/yahoo-dom-event.js', {type=>'text/javascript'});
-    $session->style->setScript('/extras/yui/build/dom/dom-min.js', {type=>'text/javascript'});
     $session->style->setScript('/extras/yui/build/element/element-beta-min.js', {type=>'text/javascript'});
     $session->style->setScript('/extras/yui/build/connection/connection-min.js', {type=>'text/javascript'});
     $session->style->setScript('/extras/yui/build/json/json-min.js', {type=>'text/javascript'});
-    $session->style->setScript('/extras/yui/build/datatable/datatable.js', {type=>'text/javascript'});
     $session->style->setScript('/extras/yui/build/datasource/datasource-min.js', {type=>'text/javascript'});
+    $session->style->setScript('/extras/yui/build/datatable/datatable-min.js', {type=>'text/javascript'});
 
 
     my $dataDef = [
@@ -483,26 +485,51 @@ sub www_managePayouts {
     ];
     my $dataDefJSON = encode_json( $dataDef );
 
-    my $output = qq{<script type="text/javascript">var vpDataDef = $dataDefJSON;</script>};
 
+
+    my $output = qq{<script type="text/javascript">var vpDataDef = $dataDefJSON;</script>};
+    my $output .= qq{<div class="yui-skin-sam">};
+
+
+    my $vendorCount = 0;
     foreach my $vendor ( values %{ $vendors } ) {
-        my $id  = "vp_$vendor->{vendorId}";
-        $id =~ tr/-/_/;
-        my $url = $session->url->page('shop=vendor;func=payoutDataAsJSON;vendorId='.$vendor->{vendorId});
+        $vendorCount++;
+
+        my $id  = "v$vendorCount";
+
+        my $jsonUrl = $session->url->page('shop=vendor;method=payoutDataAsJSON;vendorId='.$vendor->{vendorId});
+
+#       my $url = $session->url->page('');
+#       my $url2 = 'shop=vendor;func=payoutDataAsJSON;vendorId='.$vendor->{vendorId};
 
         $output .= '<h2>' . $vendor->{name}. ' - total amount: '. $vendor->{totalPayout} . '</h2>';
         $output .= qq|\n<div id="$id"></div>\n|;
         $output .= 
 <<EOJS;
             <script type="text/javascript">
-                var ds_$id  = new YAHOO.util.XHRDataSource( '$url', { responseType : YAHOO.util.DataSource.TYPE_JSON } );
+                var hopsa = [ {configuredTitle : 'ct', price: '0', quantity : '1', vendorPayoutAmount : '0',
+                vendorPayoutStatus : 'hups' } ];
+
+                var ds_$id  = new YAHOO.util.DataSource( '$jsonUrl' );
+                ds_$id.responseType = YAHOO.util.DataSource.TYPE_JSON;
+                ds_$id.responseSchema = {
+                        resultsList : 'results',
+                        fields : [
+                            { key: 'configuredTitle' }, 
+                            { key: 'price' }, 
+                            { key: 'quantity' }, 
+                            { key: 'vendorPayoutAmount' }, 
+                            { key: 'vendorPayoutStatus' }
+                        ]
+                };
                 var vpt_$id = new YAHOO.widget.DataTable( '$id', vpDataDef, ds_$id );
             </script>
 EOJS
     }        
 
+    $output .= q{</div>};
     my $console = WebGUI::Shop::Admin->new($session)->getAdminConsole;
-    return $console->render($output, 'Vendor payout'); #$i18n->get("vendors"));
+    $console->render($output, 'Vendor payout'); #$i18n->get("vendors"));
 
 }
 
