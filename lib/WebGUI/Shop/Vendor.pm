@@ -519,9 +519,6 @@ sub www_managePayouts {
         my $jsonUrl         = $session->url->page('shop=vendor;method=payoutDataAsJSON;vendorId='.$vendor->{vendorId});
         my $updateStatusUrl = $session->url->page('shop=vendor;method=setPayoutStatus');
 
-#       my $url = $session->url->page('');
-#       my $url2 = 'shop=vendor;func=payoutDataAsJSON;vendorId='.$vendor->{vendorId};
-
         $output .= '<h2>' . $vendor->{name}. ' - total amount: '. $vendor->{totalPayout} . '</h2>';
         $output .= qq|\n<div id="$id"></div>\n|;
         $output .= 
@@ -541,7 +538,6 @@ sub www_managePayouts {
                         ]
                 };
                 var vpt_$id = new YAHOO.widget.DataTable( '$id', vpDataDef, ds_$id );
-//                vpt_$id.subscribe( "rowClickEvent", vpt_$id.onEventSelectRow ); 
                 vpt_$id.subscribe( "rowClickEvent", function (e) {
                     var record      = this.getRecord( e.target );
                     var callback    = {
@@ -560,18 +556,6 @@ sub www_managePayouts {
                     var status = record.getData( 'vendorPayoutStatus' ) === 'NotPayed' ? 'Scheduled' : 'NotPayed';
                     var url = '$updateStatusUrl' + ';itemId=' + record.getData( 'itemId' ) + ';status=' + status;
                     YAHOO.util.Connect.asyncRequest( 'post', url, callback );
-
-/*                    if (record.getData( 'vendorPayoutStatus' ) === 'NotPayed') {
-                        this.updateCell( record, 'vendorPayoutStatus', 'Scheduled' );
-//                        record.setData( 'vendorPayoutStatus', 'Scheduled' );
-                    }
-                    else {
-                        this.updateCell( record, 'vendorPayoutStatus', 'NotPayed' ); 
-//                        record.setData( 'vendorPayoutStatus', 'NotPayed' );
-                    }
-//                    alert( this )
-//                    var a = 1;
-*/
                 } );
                 
             </script>
