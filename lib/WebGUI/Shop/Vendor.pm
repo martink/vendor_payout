@@ -5,6 +5,7 @@ use Class::InsideOut qw{ :std };
 use WebGUI::Shop::Admin;
 use WebGUI::Exception::Shop;
 use WebGUI::International;
+use WebGUI::Utility qw{ isIn };
 use JSON qw{ encode_json };
 
 =head1 NAME
@@ -405,6 +406,26 @@ sub www_manage {
     return $console->render($output, $i18n->get("vendors"));
 }
 
+
+
+
+
+#-------------------------------------------------------------------
+sub www_setPayoutStatus {
+    my $class   = shift;
+    my $session = shift;
+    my $itemId  = $session->form->process('itemId');
+    my $status  = $session->form->process('status');
+    return "error: wrong status [$status]" unless isIn( $status, qw{ NotPayed Scheduled } );
+
+    my $item = WebGUI::Shop::TransactionItem->newByDynamicTransaction( $session, $itemId );
+    return "error: invalid transactionItemId [$itemId]" unless $item;
+
+    $item->update({ vendorPayoutStatus => $status });
+
+    return $status;
+}
+
 #-------------------------------------------------------------------
 sub www_payoutDataAsJSON {
     my $class   = shift;
@@ -413,13 +434,14 @@ sub www_payoutDataAsJSON {
     my $limit   = $session->form->process('limit') || 100;
 
     my $data = $session->db->buildArrayRefOfHashRefs(
-        "select * from transactionItem where vendorId=? order by lastUpdated limit ?",
+        "select t1.* from transactionItem as t1 join transaction as t2 on t1.transactionId=t2.transactionId "
+        ." where vendorId=? order by t2.orderNumber limit ?",
         [ $vendorId, $limit ],
     );
 
     $session->http->setMimeType( 'application/json' );
 
-    return = JSON::to_json( { results => $data } );
+    return JSON::to_json( { results => $data } );
 }
 
 #-------------------------------------------------------------------
@@ -477,6 +499,7 @@ sub www_managePayouts {
 
 
     my $dataDef = [
+        { key => 'itemId',              label => 'ID'               },
         { key => 'configuredTitle',     label => 'Item'             },
         { key => 'price',               label => 'Price'            },
         { key => 'quantity',            label => 'Qty'              },
@@ -485,19 +508,16 @@ sub www_managePayouts {
     ];
     my $dataDefJSON = encode_json( $dataDef );
 
-
-
     my $output = qq{<script type="text/javascript">var vpDataDef = $dataDefJSON;</script>};
-    my $output .= qq{<div class="yui-skin-sam">};
-
+    $output .= qq{<div class="yui-skin-sam">};
 
     my $vendorCount = 0;
     foreach my $vendor ( values %{ $vendors } ) {
         $vendorCount++;
 
-        my $id  = "v$vendorCount";
-
-        my $jsonUrl = $session->url->page('shop=vendor;method=payoutDataAsJSON;vendorId='.$vendor->{vendorId});
+        my $id              = "v$vendorCount";
+        my $jsonUrl         = $session->url->page('shop=vendor;method=payoutDataAsJSON;vendorId='.$vendor->{vendorId});
+        my $updateStatusUrl = $session->url->page('shop=vendor;method=setPayoutStatus');
 
 #       my $url = $session->url->page('');
 #       my $url2 = 'shop=vendor;func=payoutDataAsJSON;vendorId='.$vendor->{vendorId};
@@ -507,14 +527,12 @@ sub www_managePayouts {
         $output .= 
 <<EOJS;
             <script type="text/javascript">
-                var hopsa = [ {configuredTitle : 'ct', price: '0', quantity : '1', vendorPayoutAmount : '0',
-                vendorPayoutStatus : 'hups' } ];
-
                 var ds_$id  = new YAHOO.util.DataSource( '$jsonUrl' );
                 ds_$id.responseType = YAHOO.util.DataSource.TYPE_JSON;
                 ds_$id.responseSchema = {
                         resultsList : 'results',
                         fields : [
+                            { key: 'itemId' },
                             { key: 'configuredTitle' }, 
                             { key: 'price' }, 
                             { key: 'quantity' }, 
@@ -523,14 +541,47 @@ sub www_managePayouts {
                         ]
                 };
                 var vpt_$id = new YAHOO.widget.DataTable( '$id', vpDataDef, ds_$id );
+//                vpt_$id.subscribe( "rowClickEvent", vpt_$id.onEventSelectRow ); 
+                vpt_$id.subscribe( "rowClickEvent", function (e) {
+                    var record      = this.getRecord( e.target );
+                    var callback    = {
+                        scope   : this,
+                        success : function ( o ) {
+                            var status = o.responseText;
+                            if ( status.match(/^error/) ) {
+                                alert( status );
+                                return;
+                            }
+
+                            this.updateCell( record, 'vendorPayoutStatus', status );
+                        }
+                    };
+                
+                    var status = record.getData( 'vendorPayoutStatus' ) === 'NotPayed' ? 'Scheduled' : 'NotPayed';
+                    var url = '$updateStatusUrl' + ';itemId=' + record.getData( 'itemId' ) + ';status=' + status;
+                    YAHOO.util.Connect.asyncRequest( 'post', url, callback );
+
+/*                    if (record.getData( 'vendorPayoutStatus' ) === 'NotPayed') {
+                        this.updateCell( record, 'vendorPayoutStatus', 'Scheduled' );
+//                        record.setData( 'vendorPayoutStatus', 'Scheduled' );
+                    }
+                    else {
+                        this.updateCell( record, 'vendorPayoutStatus', 'NotPayed' ); 
+//                        record.setData( 'vendorPayoutStatus', 'NotPayed' );
+                    }
+//                    alert( this )
+//                    var a = 1;
+*/
+                } );
+                
             </script>
 EOJS
     }        
 
     $output .= q{</div>};
-    my $console = WebGUI::Shop::Admin->new($session)->getAdminConsole;
-    $console->render($output, 'Vendor payout'); #$i18n->get("vendors"));
 
+    my $console = WebGUI::Shop::Admin->new($session)->getAdminConsole;
+    return $console->render($output, 'Vendor payout'); #$i18n->get("vendors"));
 }
 
 1;
