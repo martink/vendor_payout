@@ -414,29 +414,36 @@ sub www_manage {
 sub www_setPayoutStatus {
     my $class   = shift;
     my $session = shift;
-    my $itemId  = $session->form->process('itemId');
+    my @itemIds = $session->form->process('itemId');
     my $status  = $session->form->process('status');
     return "error: wrong status [$status]" unless isIn( $status, qw{ NotPayed Scheduled } );
 
-    my $item = WebGUI::Shop::TransactionItem->newByDynamicTransaction( $session, $itemId );
-    return "error: invalid transactionItemId [$itemId]" unless $item;
-
-    $item->update({ vendorPayoutStatus => $status });
+    foreach  my $itemId (@itemIds) {
+       my $item = WebGUI::Shop::TransactionItem->newByDynamicTransaction( $session, $itemId );
+       return "error: invalid transactionItemId [$itemId]" unless $item;
+    
+       $item->update({ vendorPayoutStatus => $status });
+    }
 
     return $status;
 }
 
 #-------------------------------------------------------------------
 sub www_vendorTotalsAsJSON {
-    my $class   = shift;
-    my $session = shift;
+    my $class       = shift;
+    my $session     = shift;
+    my $vendorId    = $session->form->process('vendorId');
+    my ($vendorPayoutData, @placeholders);
+  
+    my @sql;
+    push @sql,
+        'select vendorId, vendorPayoutStatus, sum(vendorPayoutAmount) as total from transactionItem';
+    push @sql, ' where vendorId=? ' if $vendorId;
+    push @sql, ' group by vendorId, vendorPayoutStatus ';
 
-    my $sth = $session->db->read(
-        'select vendorId, vendorPayoutStatus, sum(vendorPayoutAmount) as total from transactionItem '
-        .' group by vendorId, vendorPayoutStatus'
-    );
+    push @placeholders, $vendorId if $vendorId;
 
-    my $vendorPayoutData;
+    my $sth = $session->db->read( join( ' ', @sql) , \@placeholders );
     while (my $row = $sth->hashRef) {
         $vendorPayoutData->{ $row->{vendorId} }->{ $row->{vendorPayoutStatus} } = $row->{total};
     }
@@ -526,6 +533,7 @@ sub www_managePayouts {
     $session->style->setScript('/extras/yui/build/json/json-min.js', {type=>'text/javascript'});
     $session->style->setScript('/extras/yui/build/datasource/datasource-min.js', {type=>'text/javascript'});
     $session->style->setScript('/extras/yui/build/datatable/datatable-min.js', {type=>'text/javascript'});
+    $session->style->setScript('/extras/yui/build/button/button-min.js', {type=>'text/javascript'});
     $session->style->setScript('/extras/VendorPayout/vendorPayout.js', {type=>'text/javascript'});
 
     my $output = q{<div id="vendorPayoutContainer" class="yui-skin-sam"></div>}

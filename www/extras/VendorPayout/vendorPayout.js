@@ -5,17 +5,29 @@ if (typeof WebGUI == "undefined" || !WebGUI) {
 WebGUI.VendorPayout = function ( containerId ) {
     this.container  = document.getElementById( containerId );
 
-    this.vendorList     = document.createElement('div');
+    // Vendors data table
+    this.vendorList = document.createElement('div');
     this.container.appendChild( this.vendorList );
 
+    // Select buttons
+    this.buttonDiv  = document.createElement('div');
+    this.container.appendChild( this.buttonDiv );
+    this.scheduleAllButton      = new YAHOO.widget.Button({ label: 'Schedule all',   container: this.buttonDiv });
+    this.descheduleAllButton    = new YAHOO.widget.Button({ label: 'Deschedule all', container: this.buttonDiv });
+//    this.buttonDiv.appendChild( this.scheduleAllButton );
+//    this.buttonDiv.appendChild( this.descheduleAllButton );
+
+    // Payout details data table
     this.payoutDetails  = document.createElement('div');
     this.container.appendChild( this.payoutDetails );
 
+
     this.itemBaseUrl = '/?shop=vendor;method=payoutDataAsJSON;vendorId='; 
 
-
+    // Initialise tables
     this.initVendorList();
     this.initPayoutDetails();
+    this.initButtons();
 
     return this;
 }
@@ -31,7 +43,7 @@ WebGUI.VendorPayout.prototype.initVendorList = function () {
     ];
 
     // setup data source
-    var url = '/?shop=vendor;method=vendorTotalsAsJSON';
+    var url = '/?shop=vendor;method=vendorTotalsAsJSON;vendorId=';
     this.vendorDataSource = new YAHOO.util.DataSource( url );
     this.vendorDataSource.responseType      = YAHOO.util.DataSource.TYPE_JSON;
     this.vendorDataSource.responseSchema    = {
@@ -45,9 +57,10 @@ WebGUI.VendorPayout.prototype.initVendorList = function () {
     // add row click handler that fetches this vendor's data for the payout details table
     this.vendorDataTable.subscribe( "rowClickEvent", function (e) {
         var record  = this.getRecord( e.target );
-        obj.currentVendorId = record.getData( 'vendorId' );
+        obj.currentVendorId     = record.getData( 'vendorId' );
+        obj.currentVendorRow    = record;
 
-        var url = obj.itemBaseUrl + obj.currentVendorId;
+//        var url = obj.itemBaseUrl + obj.currentVendorId;
         obj.itemDataSource.sendRequest( obj.currentVendorId, {
             success : obj.itemDataTable.onDataReturnReplaceRows, //InitializeTable,
             scope   : obj.itemDataTable
@@ -57,6 +70,7 @@ WebGUI.VendorPayout.prototype.initVendorList = function () {
 
 //----------------------------------------------------------------------------
 WebGUI.VendorPayout.prototype.initPayoutDetails = function () {
+    var obj = this;
     this.itemSchema = [
         { key: 'itemId' },
         { key: 'configuredTitle' }, 
@@ -88,14 +102,44 @@ WebGUI.VendorPayout.prototype.initPayoutDetails = function () {
                 }
 
                 this.updateCell( record, 'vendorPayoutStatus', status );
+
+                // Update vendor row
+                obj.vendorDataSource.sendRequest( obj.currentVendorId, {
+                    // onDataReturnUpdateRows is not available in yui 2.6.0...
+                    success : function ( req, response , payload ) {
+                        this.updateRow( obj.currentVendorRow, response.results[0] );
+                    },
+                    scope   : obj.vendorDataTable
+                } );
             }
         };
     
         var status = record.getData( 'vendorPayoutStatus' ) === 'NotPayed' ? 'Scheduled' : 'NotPayed';
         var url = '/?shop=vendor;method=setPayoutStatus' + ';itemId=' + record.getData( 'itemId' ) + ';status=' + status;
         YAHOO.util.Connect.asyncRequest( 'post', url, callback );
-    } );
-    
+    } );  
+}
 
+//----------------------------------------------------------------------------
+WebGUI.VendorPayout.prototype.initButtons = function () {
+    var obj = this;
+
+    var updateAll = function ( status ) {
+        // TODO: Make this range based.
+        var records = obj.itemDataTable.getRecordSet().getRecords();
+        var itemIds = new Array;
+        for (i = 0; i < records.length; i++) {
+            itemIds.push( 'itemId=' + records[i].getData( 'itemId' ) );
+        }
+        
+        var postdata = itemIds.join('&');
+        var url      = '/?shop=vendor&method=setPayoutStatus&status=' + status;
+
+        YAHOO.util.Connect.asyncRequest( 'POST', url, { }, postdata );
+    }
+
+    this.scheduleAllButton.on(   'click', function () { updateAll( 'Scheduled' ) } );
+    this.descheduleAllButton.on( 'click', function () { updateAll( 'NotPayed'  ) } );   
+        
 }
 
