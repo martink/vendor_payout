@@ -59,12 +59,28 @@ WebGUI.VendorPayout.prototype.initVendorList = function () {
         var record  = this.getRecord( e.target );
         obj.currentVendorId     = record.getData( 'vendorId' );
         obj.currentVendorRow    = record;
-
+        obj.refreshItemDataTable();
 //        var url = obj.itemBaseUrl + obj.currentVendorId;
-        obj.itemDataSource.sendRequest( obj.currentVendorId, {
-            success : obj.itemDataTable.onDataReturnReplaceRows, //InitializeTable,
-            scope   : obj.itemDataTable
-        });
+    } );
+}
+
+//----------------------------------------------------------------------------
+WebGUI.VendorPayout.prototype.refreshItemDataTable = function () {
+    this.itemDataSource.sendRequest( this.currentVendorId, {
+        success : this.itemDataTable.onDataReturnReplaceRows, //InitializeTable,
+        scope   : this.itemDataTable
+    });
+}
+
+//----------------------------------------------------------------------------
+WebGUI.VendorPayout.prototype.refreshVendorRow = function () {
+    var obj = this;
+    this.vendorDataSource.sendRequest( this.currentVendorId, {
+        // onDataReturnUpdateRows is not available in yui 2.6.0...
+        success : function ( req, response , payload ) {
+            this.updateRow( obj.currentVendorRow, response.results[0] );
+        },
+        scope   : this.vendorDataTable
     } );
 }
 
@@ -104,13 +120,7 @@ WebGUI.VendorPayout.prototype.initPayoutDetails = function () {
                 this.updateCell( record, 'vendorPayoutStatus', status );
 
                 // Update vendor row
-                obj.vendorDataSource.sendRequest( obj.currentVendorId, {
-                    // onDataReturnUpdateRows is not available in yui 2.6.0...
-                    success : function ( req, response , payload ) {
-                        this.updateRow( obj.currentVendorRow, response.results[0] );
-                    },
-                    scope   : obj.vendorDataTable
-                } );
+                obj.refreshVendorRow();
             }
         };
     
@@ -134,8 +144,15 @@ WebGUI.VendorPayout.prototype.initButtons = function () {
         
         var postdata = itemIds.join('&');
         var url      = '/?shop=vendor&method=setPayoutStatus&status=' + status;
+        var callback = {
+            success: function (o) {
+                this.refreshItemDataTable();
+                this.refreshVendorRow();
+            }, 
+            scope: obj 
+        };
 
-        YAHOO.util.Connect.asyncRequest( 'POST', url, { }, postdata );
+        YAHOO.util.Connect.asyncRequest( 'POST', url, callback, postdata );
     }
 
     this.scheduleAllButton.on(   'click', function () { updateAll( 'Scheduled' ) } );
