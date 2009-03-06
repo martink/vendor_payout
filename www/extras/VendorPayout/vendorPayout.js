@@ -3,19 +3,29 @@ if (typeof WebGUI == "undefined" || !WebGUI) {
 }
 
 WebGUI.VendorPayout = function ( containerId ) {
+    var obj = this;
     this.container  = document.getElementById( containerId );
 
     // Vendors data table
     this.vendorList = document.createElement('div');
     this.container.appendChild( this.vendorList );
+    
 
-    // Select buttons
+
+    // (De)schedule buttons
     this.buttonDiv  = document.createElement('div');
     this.container.appendChild( this.buttonDiv );
     this.scheduleAllButton      = new YAHOO.widget.Button({ label: 'Schedule all',   container: this.buttonDiv });
     this.descheduleAllButton    = new YAHOO.widget.Button({ label: 'Deschedule all', container: this.buttonDiv });
-//    this.buttonDiv.appendChild( this.scheduleAllButton );
-//    this.buttonDiv.appendChild( this.descheduleAllButton );
+
+    // Submit button
+    this.submitPayoutsButton    = new YAHOO.widget.Button({ label: 'Submit Scheduled Payouts', container: this.buttonDiv });
+    this.submitPayoutsButton.on( 'click', function () { 
+        YAHOO.util.Connect.asyncRequest( 'GET', '/?shop=vendor;method=submitScheduledPayouts', { 
+            success: obj.initialize, 
+            scope: obj
+        } );
+    } ); 
 
     // Payout details data table
     this.payoutDetails  = document.createElement('div');
@@ -25,11 +35,16 @@ WebGUI.VendorPayout = function ( containerId ) {
     this.itemBaseUrl = '/?shop=vendor;method=payoutDataAsJSON;vendorId='; 
 
     // Initialise tables
+    this.initialize();
+
+    return this;
+}
+
+//----------------------------------------------------------------------------
+WebGUI.VendorPayout.prototype.initialize = function () {
     this.initVendorList();
     this.initPayoutDetails();
     this.initButtons();
-
-    return this;
 }
 
 //----------------------------------------------------------------------------

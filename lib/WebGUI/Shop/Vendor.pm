@@ -407,8 +407,17 @@ sub www_manage {
 }
 
 
+#-------------------------------------------------------------------
+sub www_submitScheduledPayouts {
+    my $class   = shift;
+    my $session = shift;
 
+    $session->db->write(
+        q{ update transactionItem set vendorPayoutStatus = 'Payed' where vendorPayoutStatus = 'Scheduled' }
+    );
 
+    return $class->www_managePayouts( $session );
+}
 
 #-------------------------------------------------------------------
 sub www_setPayoutStatus {
