@@ -481,7 +481,7 @@ sub www_payoutDataAsJSON {
 
     my $data = $session->db->buildArrayRefOfHashRefs(
         "select t1.* from transactionItem as t1 join transaction as t2 on t1.transactionId=t2.transactionId "
-        ." where vendorId=? order by t2.orderNumber limit ?",
+        ." where vendorId=? and vendorPayoutAmount > 0 and vendorPayoutStatus <> 'Payed' order by t2.orderNumber limit ?",
         [ $vendorId, $limit ],
     );
 
