@@ -412,6 +412,9 @@ sub www_submitScheduledPayouts {
     my $class   = shift;
     my $session = shift;
 
+    my $admin   = WebGUI::Shop::Admin->new($session);
+    return $session->privilege->adminOnly() unless ($admin->canManage);
+
     $session->db->write(
         q{ update transactionItem set vendorPayoutStatus = 'Payed' where vendorPayoutStatus = 'Scheduled' }
     );
@@ -423,6 +426,10 @@ sub www_submitScheduledPayouts {
 sub www_setPayoutStatus {
     my $class   = shift;
     my $session = shift;
+
+    my $admin   = WebGUI::Shop::Admin->new($session);
+    return $session->privilege->adminOnly() unless ($admin->canManage);
+
     my @itemIds = $session->form->process('itemId');
     my $status  = $session->form->process('status');
     return "error: wrong status [$status]" unless isIn( $status, qw{ NotPayed Scheduled } );
@@ -430,6 +437,7 @@ sub www_setPayoutStatus {
     foreach  my $itemId (@itemIds) {
        my $item = WebGUI::Shop::TransactionItem->newByDynamicTransaction( $session, $itemId );
        return "error: invalid transactionItemId [$itemId]" unless $item;
+       return "error: cannot change status of a Payed item" if $item->get('vendorPayoutStatus') eq 'Payed';
     
        $item->update({ vendorPayoutStatus => $status });
     }
@@ -441,6 +449,10 @@ sub www_setPayoutStatus {
 sub www_vendorTotalsAsJSON {
     my $class       = shift;
     my $session     = shift;
+
+    my $admin   = WebGUI::Shop::Admin->new($session);
+    return $session->privilege->adminOnly() unless ($admin->canManage);
+
     my $vendorId    = $session->form->process('vendorId');
     my ($vendorPayoutData, @placeholders);
   
@@ -476,6 +488,10 @@ sub www_vendorTotalsAsJSON {
 sub www_payoutDataAsJSON {
     my $class   = shift;
     my $session = shift;
+
+    my $admin   = WebGUI::Shop::Admin->new($session);
+    return $session->privilege->adminOnly() unless ($admin->canManage);
+
     my $vendorId = $session->form->process('vendorId');
     my $limit   = $session->form->process('limit') || 100;
 
@@ -495,6 +511,9 @@ sub www_managePayouts {
     my $class   = shift;
     my $session = shift;
 
+    my $admin   = WebGUI::Shop::Admin->new($session);
+    return $session->privilege->adminOnly() unless ($admin->canManage);
+    
     # Load the required YUI stuff.
     $session->style->setLink('/extras/yui/build/datatable/assets/skins/sam/datatable.css', {type=>'text/css', rel=>'stylesheet'});
     $session->style->setScript('/extras/yui/build/yahoo-dom-event/yahoo-dom-event.js', {type=>'text/javascript'});
