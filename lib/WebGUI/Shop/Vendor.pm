@@ -494,44 +494,6 @@ sub www_payoutDataAsJSON {
 sub www_managePayouts {
     my $class   = shift;
     my $session = shift;
-    my $vendors = {};
-
-    my $sth = $session->db->read(
-        "select itemId from transactionItem "
-        ." where vendorId is not null and vendorId != ? and vendorPayoutStatus=?", 
-        [
-            'defaultvendor000000000',
-            'NotPayed',
-        ],
-    );
-
-    while (my $row = $sth->hashRef) {
-        my $item    = WebGUI::Shop::TransactionItem->newByDynamicTransaction( $session, $row->{ itemId } );
-        next unless defined $item;
-
-        my $sku     = $item->getSku;
-        next unless defined $sku;
-        
-        my $vendorId = $item->get('vendorId');
-
-        unless (exists $vendors->{ $vendorId }) {
-            my $vendor = WebGUI::Shop::Vendor->new( $session, $item->get('vendorId') );
-            $vendors->{ $vendorId } = $vendor->get;
-        }
-        my $vendor = $vendors->{ $vendorId };
-            
-        my $payoutAmount = $sku->getVendorPayout * $item->get('quantity');
-        $vendor->{ totalPayout } += $payoutAmount;
-
-        push @{ $vendor->{ itemLoop }  }, {
-            %{ $item->get },
-            # TODO: remove the line below
-            vendorPayoutPercentage  => $sku->get('vendorPayoutPercentage'),
-            vendorPayoutAmount      => $payoutAmount,
-        }
-    }
-
-    $sth->finish;
 
     # Load the required YUI stuff.
     $session->style->setLink('/extras/yui/build/datatable/assets/skins/sam/datatable.css', {type=>'text/css', rel=>'stylesheet'});
@@ -560,72 +522,6 @@ CSS
 
     my $output = q{<div id="vendorPayoutContainer" class="yui-skin-sam"></div>}
         .q{<script type="text/javascript">var vp = new WebGUI.VendorPayout( 'vendorPayoutContainer' );</script>};
-
-#    my $dataDef = [
-#        { key => 'itemId',              label => 'ID'               },
-#        { key => 'configuredTitle',     label => 'Item'             },
-#        { key => 'price',               label => 'Price'            },
-#        { key => 'quantity',            label => 'Qty'              },
-#        { key => 'vendorPayoutAmount',  label => 'Payout'           },
-#        { key => 'vendorPayoutStatus',  label => 'Payout status'    },
-#    ];
-#    my $dataDefJSON = encode_json( $dataDef );
-#
-#    my $output = qq{<script type="text/javascript">var vpDataDef = $dataDefJSON;</script>};
-#    $output .= qq{<div class="yui-skin-sam">};
-#
-#    my $vendorCount = 0;
-#    foreach my $vendor ( values %{ $vendors } ) {
-#        $vendorCount++;
-#
-#        my $id              = "v$vendorCount";
-#        my $jsonUrl         = $session->url->page('shop=vendor;method=payoutDataAsJSON;vendorId='.$vendor->{vendorId});
-#        my $updateStatusUrl = $session->url->page('shop=vendor;method=setPayoutStatus');
-#
-#        $output .= '<h2>' . $vendor->{name}. ' - total amount: '. $vendor->{totalPayout} . '</h2>';
-#        $output .= qq|\n<div id="$id"></div>\n|;
-#        $output .= 
-#<<EOJS;
-#            <script type="text/javascript">
-#                var ds_$id  = new YAHOO.util.DataSource( '$jsonUrl' );
-#                ds_$id.responseType = YAHOO.util.DataSource.TYPE_JSON;
-#                ds_$id.responseSchema = {
-#                        resultsList : 'results',
-#                        fields : [
-#                            { key: 'itemId' },
-#                            { key: 'configuredTitle' }, 
-#                            { key: 'price' }, 
-#                            { key: 'quantity' }, 
-#                            { key: 'vendorPayoutAmount' }, 
-#                            { key: 'vendorPayoutStatus' }
-#                        ]
-#                };
-#                var vpt_$id = new YAHOO.widget.DataTable( '$id', vpDataDef, ds_$id );
-#                vpt_$id.subscribe( "rowClickEvent", function (e) {
-#                    var record      = this.getRecord( e.target );
-#                    var callback    = {
-#                        scope   : this,
-#                        success : function ( o ) {
-#                            var status = o.responseText;
-#                            if ( status.match(/^error/) ) {
-#                                alert( status );
-#                                return;
-#                            }
-#
-#                            this.updateCell( record, 'vendorPayoutStatus', status );
-#                        }
-#                    };
-#                
-#                    var status = record.getData( 'vendorPayoutStatus' ) === 'NotPayed' ? 'Scheduled' : 'NotPayed';
-#                    var url = '$updateStatusUrl' + ';itemId=' + record.getData( 'itemId' ) + ';status=' + status;
-#                    YAHOO.util.Connect.asyncRequest( 'post', url, callback );
-#                } );
-#                
-#            </script>
-#EOJS
-#    }        
-#
-#    $output .= q{</div>};
 
     my $console = WebGUI::Shop::Admin->new($session)->getAdminConsole;
     return $console->render($output, 'Vendor payout'); #$i18n->get("vendors"));
