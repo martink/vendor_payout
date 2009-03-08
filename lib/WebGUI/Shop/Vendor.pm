@@ -492,18 +492,27 @@ sub www_payoutDataAsJSON {
     my $admin   = WebGUI::Shop::Admin->new($session);
     return $session->privilege->adminOnly() unless ($admin->canManage);
 
-    my $vendorId = $session->form->process('vendorId');
-    my $limit   = $session->form->process('limit') || 100;
-
-    my $data = $session->db->buildArrayRefOfHashRefs(
+    my $vendorId    = $session->form->process('vendorId');
+    my $startIndex  = $session->form->process('startIndex');
+    my $rowsPerPage = $session->form->process('results') || 100;
+    my $pageNumber  = int( $startIndex / $rowsPerPage ) + 1;
+    
+    my $sql         = 
         "select t1.* from transactionItem as t1 join transaction as t2 on t1.transactionId=t2.transactionId "
-        ." where vendorId=? and vendorPayoutAmount > 0 and vendorPayoutStatus <> 'Payed' order by t2.orderNumber limit ?",
-        [ $vendorId, $limit ],
-    );
+        ." where vendorId=? and vendorPayoutAmount > 0 and vendorPayoutStatus <> 'Payed' order by t2.orderNumber";
+    my $placeholders =  [ $vendorId ];
+
+    my $paginator   = WebGUI::Paginator->new( $session, '', $rowsPerPage, '', $pageNumber ); 
+    $paginator->setDataByQuery( $sql, undef, 0, $placeholders );
+
+    my $data = {
+        totalRecords    => $paginator->getRowCount,
+        results         => $paginator->getPageData,
+    };
 
     $session->http->setMimeType( 'application/json' );
 
-    return JSON::to_json( { results => $data } );
+    return JSON::to_json( $data );
 }
 
 #-------------------------------------------------------------------
@@ -515,12 +524,15 @@ sub www_managePayouts {
     return $session->privilege->adminOnly() unless ($admin->canManage);
     
     # Load the required YUI stuff.
+    $session->style->setLink('/extras/yui/build/paginator/assets/skins/sam/paginator.css', {type=>'text/css', rel=>'stylesheet'});
     $session->style->setLink('/extras/yui/build/datatable/assets/skins/sam/datatable.css', {type=>'text/css', rel=>'stylesheet'});
+    $session->style->setLink('/extras/yui/build/button/assets/skins/sam/button.css', {type=>'text/css', rel=>'stylesheet'});
     $session->style->setScript('/extras/yui/build/yahoo-dom-event/yahoo-dom-event.js', {type=>'text/javascript'});
     $session->style->setScript('/extras/yui/build/element/element-beta-min.js', {type=>'text/javascript'});
     $session->style->setScript('/extras/yui/build/connection/connection-min.js', {type=>'text/javascript'});
     $session->style->setScript('/extras/yui/build/json/json-min.js', {type=>'text/javascript'});
-    $session->style->setScript('/extras/yui/build/datasource/datasource-min.js', {type=>'text/javascript'});
+    $session->style->setScript('/extras/yui/build/paginator/paginator-min.js', {type=>'text/javascript'});
+    $session->style->setScript('/extras/yui/build/datasource/datasource.js', {type=>'text/javascript'});
     $session->style->setScript('/extras/yui/build/datatable/datatable-min.js', {type=>'text/javascript'});
     $session->style->setScript('/extras/yui/build/button/button-min.js', {type=>'text/javascript'});
     $session->style->setScript('/extras/VendorPayout/vendorPayout.js', {type=>'text/javascript'});

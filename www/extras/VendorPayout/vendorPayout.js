@@ -30,7 +30,7 @@ WebGUI.VendorPayout = function ( containerId ) {
     this.container.appendChild( this.payoutDetails );
 
 
-    this.itemBaseUrl = '/?shop=vendor;method=payoutDataAsJSON;vendorId='; 
+    this.itemBaseUrl = '/?shop=vendor;method=payoutDataAsJSON;';
 
     // Initialise tables
     this.initialize();
@@ -56,7 +56,7 @@ WebGUI.VendorPayout.prototype.initVendorList = function () {
     ];
 
     // setup data source
-    var url = '/?shop=vendor;method=vendorTotalsAsJSON;vendorId=';
+    var url = '/?shop=vendor;method=vendorTotalsAsJSON;';
     this.vendorDataSource = new YAHOO.util.DataSource( url );
     this.vendorDataSource.responseType      = YAHOO.util.DataSource.TYPE_JSON;
     this.vendorDataSource.responseSchema    = {
@@ -79,22 +79,26 @@ WebGUI.VendorPayout.prototype.initVendorList = function () {
         var record  = this.getRecord( e.target );
         obj.currentVendorId     = record.getData( 'vendorId' );
         obj.currentVendorRow    = record;
+
         obj.refreshItemDataTable();
     } );
 }
 
 //----------------------------------------------------------------------------
 WebGUI.VendorPayout.prototype.refreshItemDataTable = function () {
-    this.itemDataSource.sendRequest( this.currentVendorId, {
-        success : this.itemDataTable.onDataReturnReplaceRows, //InitializeTable,
+    // Set the url here so pagination keeps working...
+    this.itemDataSource.liveData = this.itemBaseUrl + 'vendorId=' + this.currentVendorId +';';
+
+    this.itemDataSource.sendRequest( '', {
+        success : this.itemDataTable.onDataReturnInitializeTable, //ReplaceRows,
         scope   : this.itemDataTable
-    });
+    } );
 }
 
 //----------------------------------------------------------------------------
 WebGUI.VendorPayout.prototype.refreshVendorRow = function () {
     var obj = this;
-    this.vendorDataSource.sendRequest( this.currentVendorId, {
+    this.vendorDataSource.sendRequest( 'vendorId=' + this.currentVendorId, {
         // onDataReturnUpdateRows is not available in yui 2.6.0...
         success : function ( req, response , payload ) {
             this.updateRow( obj.currentVendorRow, response.results[0] );
@@ -132,14 +136,27 @@ WebGUI.VendorPayout.prototype.initPayoutDetails = function () {
     this.itemDataSource.responseType    = YAHOO.util.DataSource.TYPE_JSON;
     this.itemDataSource.responseSchema  = {
         resultsList : 'results',
-        fields      : this.itemSchema
+        fields      : this.itemSchema,
+        metaFields  : { totalRecords : 'totalRecords' }
     };
 
     // Instanciate the DataTable.
     this.itemDataTable = new YAHOO.widget.DataTable( this.payoutDetails, this.itemSchema, this.itemDataSource, {
         dynamicData : true,
-        formatRow   : rowFormatter
+        formatRow   : rowFormatter,
+        paginator   : new YAHOO.widget.Paginator({ rowsPerPage:10 } ) //, updateOnChange: true })
     });
+    this.itemDataTable.handleDataReturnPayload = function(oRequest, oResponse, oPayload) { 
+        // For some reason oPayload is undefined when we're switch vendors. This is a hack to
+        // still set the paginator correctly.
+        if ( !oPayload ) { 
+            oPayload = this;
+            var paginator = this.get('paginator');
+            paginator.set( 'totalRecords', parseInt( oResponse.meta.totalRecords,10) );
+        }
+        oPayload.totalRecords = oResponse.meta.totalRecords; 
+        return oPayload; 
+    };
 
     // Add event handlers for mouseover highlighting
     this.itemDataTable.subscribe( "rowMouseoverEvent", this.itemDataTable.onEventHighlightRow   );
