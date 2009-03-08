@@ -10,8 +10,6 @@ WebGUI.VendorPayout = function ( containerId ) {
     this.vendorList = document.createElement('div');
     this.container.appendChild( this.vendorList );
     
-
-
     // (De)schedule buttons
     this.buttonDiv  = document.createElement('div');
     this.container.appendChild( this.buttonDiv );
@@ -111,16 +109,33 @@ WebGUI.VendorPayout.prototype.initPayoutDetails = function () {
         { key: 'vendorPayoutStatus' }
     ]
 
-    var url = this.itemBaseUrl + this.currentVendorId;
+    // Create a row formatter to highlight Scheduled payouts
+    var rowFormatter = function ( tr, record ) {
+        if (record.getData('vendorPayoutStatus') === 'Scheduled') {
+            YAHOO.util.Dom.addClass( tr, 'scheduled' );
+        } 
+        else {
+            YAHOO.util.Dom.removeClass( tr, 'scheduled' );
+        }
+
+        return true;
+    }
+
+    // Instanciate the datasource.
     this.itemDataSource  = new YAHOO.util.DataSource( this.itemBaseUrl );
     this.itemDataSource.responseType    = YAHOO.util.DataSource.TYPE_JSON;
     this.itemDataSource.responseSchema  = {
         resultsList : 'results',
         fields      : this.itemSchema
     };
+
+    // Instanciate the DataTable.
     this.itemDataTable = new YAHOO.widget.DataTable( this.payoutDetails, this.itemSchema, this.itemDataSource, {
-        dynamicData : true }
-    );
+        dynamicData : true,
+        formatRow   : rowFormatter
+    });
+
+    // Add a row click handler which takes care of switching between Scheduled and NotPayed.
     this.itemDataTable.subscribe( "rowClickEvent", function (e) {
         var record      = this.getRecord( e.target );
         var callback    = {
@@ -131,8 +146,12 @@ WebGUI.VendorPayout.prototype.initPayoutDetails = function () {
                     alert( status );
                     return;
                 }
-
+                
+                // Update status cell contents
                 this.updateCell( record, 'vendorPayoutStatus', status );
+
+                // Update row higlighting
+                rowFormatter( this.getTrEl( record ), record );
 
                 // Update vendor row
                 obj.refreshVendorRow();

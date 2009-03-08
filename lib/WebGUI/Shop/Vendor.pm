@@ -533,8 +533,7 @@ sub www_managePayouts {
 
     $sth->finish;
 
-    # For now just put everything in some inline html. If it'll stay like this, move 
-    # this code into the while loop above.
+    # Load the required YUI stuff.
     $session->style->setLink('/extras/yui/build/datatable/assets/skins/sam/datatable.css', {type=>'text/css', rel=>'stylesheet'});
     $session->style->setScript('/extras/yui/build/yahoo-dom-event/yahoo-dom-event.js', {type=>'text/javascript'});
     $session->style->setScript('/extras/yui/build/element/element-beta-min.js', {type=>'text/javascript'});
@@ -544,6 +543,20 @@ sub www_managePayouts {
     $session->style->setScript('/extras/yui/build/datatable/datatable-min.js', {type=>'text/javascript'});
     $session->style->setScript('/extras/yui/build/button/button-min.js', {type=>'text/javascript'});
     $session->style->setScript('/extras/VendorPayout/vendorPayout.js', {type=>'text/javascript'});
+
+    # Add css for scheduled payout highlighting
+    $session->style->setRawHeadTags(<<CSS);
+        <style type="text/css">
+            .yui-skin-sam .yui-dt tr.scheduled,
+            .yui-skin-sam .yui-dt tr.scheduled td.yui-dt-asc,
+            .yui-skin-sam .yui-dt tr.scheduled td.yui-dt-desc,
+            .yui-skin-sam .yui-dt tr.scheduled td.yui-dt-asc,
+            .yui-skin-sam .yui-dt tr.scheduled td.yui-dt-desc {
+                background-color    : #080;
+                color               : #fff;
+            }
+        </style>
+CSS
 
     my $output = q{<div id="vendorPayoutContainer" class="yui-skin-sam"></div>}
         .q{<script type="text/javascript">var vp = new WebGUI.VendorPayout( 'vendorPayoutContainer' );</script>};
