@@ -64,16 +64,22 @@ WebGUI.VendorPayout.prototype.initVendorList = function () {
         fields : this.vendorSchema
     };
 
-    // initialise data table
-    this.vendorDataTable = new YAHOO.widget.DataTable( this.vendorList, this.vendorSchema, this.vendorDataSource );
+    // initialize data table
+    this.vendorDataTable = new YAHOO.widget.DataTable( this.vendorList, this.vendorSchema, this.vendorDataSource, {
+        selectionMode : 'single'
+    } );
 
-    // add row click handler that fetches this vendor's data for the payout details table
+    // add handlers for rowhighlighting/selection
+    this.vendorDataTable.subscribe( "rowClickEvent",     this.vendorDataTable.onEventSelectRow      );
+    this.vendorDataTable.subscribe( "rowMouseoverEvent", this.vendorDataTable.onEventHighlightRow   );
+    this.vendorDataTable.subscribe( "rowMouseoutEvent",  this.vendorDataTable.onEventUnhighlightRow );
+
+    // add an additional row click handler that fetches this vendor's data for the payout details table
     this.vendorDataTable.subscribe( "rowClickEvent", function (e) {
         var record  = this.getRecord( e.target );
         obj.currentVendorId     = record.getData( 'vendorId' );
         obj.currentVendorRow    = record;
         obj.refreshItemDataTable();
-//        var url = obj.itemBaseUrl + obj.currentVendorId;
     } );
 }
 
@@ -135,6 +141,10 @@ WebGUI.VendorPayout.prototype.initPayoutDetails = function () {
         formatRow   : rowFormatter
     });
 
+    // Add event handlers for mouseover highlighting
+    this.itemDataTable.subscribe( "rowMouseoverEvent", this.itemDataTable.onEventHighlightRow   );
+    this.itemDataTable.subscribe( "rowMouseoutEvent",  this.itemDataTable.onEventUnhighlightRow );
+    
     // Add a row click handler which takes care of switching between Scheduled and NotPayed.
     this.itemDataTable.subscribe( "rowClickEvent", function (e) {
         var record      = this.getRecord( e.target );
