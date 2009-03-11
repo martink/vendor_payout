@@ -139,16 +139,13 @@ sub www_view {
     my $var     = {};
     my $vendor  = WebGUI::Shop::Vendor->newByUserId( $session, $session->user->userId );
 
-    my $payoutTotals = $session->db->buildHashRef(
-        'select vendorPayoutStatus, sum(vendorPayoutAmount) from transactionItem '
-        .'where vendorId=? group by vendorPayoutStatus ',
-        [ $vendor->getId ]
-    );
-
+    my $payoutTotals = $vendor->getPayoutTotals;
+    
     my $output = <<EOHTML;
-        Paid : $payoutTotals->{ Paid }<br />
-        Scheduled for payment : $payoutTotals->{ Scheduled }<br />
-        Pending : $payoutTotals->{ NotPaid }<br />
+        Paid : $payoutTotals->{ paid }<br />
+        Scheduled for payment : $payoutTotals->{ scheduled }<br />
+        Pending : $payoutTotals->{ notPaid }<br />
+        Total : $payoutTotals->{ total }<br />
 EOHTML
     return $output;
     

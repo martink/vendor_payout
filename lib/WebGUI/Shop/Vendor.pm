@@ -6,6 +6,7 @@ use WebGUI::Shop::Admin;
 use WebGUI::Exception::Shop;
 use WebGUI::International;
 use WebGUI::Utility qw{ isIn };
+use List::Util qw{ sum };
 use JSON qw{ encode_json };
 
 =head1 NAME
@@ -406,6 +407,25 @@ sub www_manage {
     return $console->render($output, $i18n->get("vendors"));
 }
 
+
+#-------------------------------------------------------------------
+sub getPayoutTotals {
+    my $self    = shift;
+
+    my %totals = $self->session->db->buildHash(
+        'select vendorPayoutStatus, sum(vendorPayoutAmount) as amount from transactionItem '
+        .'where vendorId=? group by vendorPayoutStatus ',
+        [ $self->getId ]
+    );
+
+    # Format the payout categories and calc the total those.
+    %totals          = 
+        map     { lcfirst $_ => sprintf '%.2f', $totals{ $_ } } 
+                qw( Paid Scheduled NotPaid );
+    $totals{ total } = sprintf '%.2f', sum values %totals;
+
+    return \%totals;
+}
 
 #-------------------------------------------------------------------
 sub www_submitScheduledPayouts {
