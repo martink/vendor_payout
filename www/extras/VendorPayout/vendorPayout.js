@@ -52,7 +52,7 @@ WebGUI.VendorPayout.prototype.initVendorList = function () {
         { key: 'vendorId'   },
         { key: 'name' },
         { key: 'Scheduled'  }, 
-        { key: 'NotPayed'   }
+        { key: 'NotPaid'   }
     ];
 
     // setup data source
@@ -162,7 +162,7 @@ WebGUI.VendorPayout.prototype.initPayoutDetails = function () {
     this.itemDataTable.subscribe( "rowMouseoverEvent", this.itemDataTable.onEventHighlightRow   );
     this.itemDataTable.subscribe( "rowMouseoutEvent",  this.itemDataTable.onEventUnhighlightRow );
     
-    // Add a row click handler which takes care of switching between Scheduled and NotPayed.
+    // Add a row click handler which takes care of switching between Scheduled and NotPaid.
     this.itemDataTable.subscribe( "rowClickEvent", function (e) {
         var record      = this.getRecord( e.target );
         var callback    = {
@@ -185,7 +185,7 @@ WebGUI.VendorPayout.prototype.initPayoutDetails = function () {
             }
         };
     
-        var status = record.getData( 'vendorPayoutStatus' ) === 'NotPayed' ? 'Scheduled' : 'NotPayed';
+        var status = record.getData( 'vendorPayoutStatus' ) === 'NotPaid' ? 'Scheduled' : 'NotPaid';
         var url = '/?shop=vendor;method=setPayoutStatus' + ';itemId=' + record.getData( 'itemId' ) + ';status=' + status;
         YAHOO.util.Connect.asyncRequest( 'post', url, callback );
     } );  
@@ -217,7 +217,7 @@ WebGUI.VendorPayout.prototype.initButtons = function () {
     }
 
     this.scheduleAllButton.on(   'click', function () { updateAll( 'Scheduled' ) } );
-    this.descheduleAllButton.on( 'click', function () { updateAll( 'NotPayed'  ) } );   
+    this.descheduleAllButton.on( 'click', function () { updateAll( 'NotPaid'  ) } );   
         
 }
 

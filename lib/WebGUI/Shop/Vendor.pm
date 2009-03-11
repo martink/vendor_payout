@@ -416,7 +416,7 @@ sub www_submitScheduledPayouts {
     return $session->privilege->adminOnly() unless ($admin->canManage);
 
     $session->db->write(
-        q{ update transactionItem set vendorPayoutStatus = 'Payed' where vendorPayoutStatus = 'Scheduled' }
+        q{ update transactionItem set vendorPayoutStatus = 'Paid' where vendorPayoutStatus = 'Scheduled' }
     );
 
     return $class->www_managePayouts( $session );
@@ -432,12 +432,12 @@ sub www_setPayoutStatus {
 
     my @itemIds = $session->form->process('itemId');
     my $status  = $session->form->process('status');
-    return "error: wrong status [$status]" unless isIn( $status, qw{ NotPayed Scheduled } );
+    return "error: wrong status [$status]" unless isIn( $status, qw{ NotPaid Scheduled } );
 
     foreach  my $itemId (@itemIds) {
        my $item = WebGUI::Shop::TransactionItem->newByDynamicTransaction( $session, $itemId );
        return "error: invalid transactionItemId [$itemId]" unless $item;
-       return "error: cannot change status of a Payed item" if $item->get('vendorPayoutStatus') eq 'Payed';
+       return "error: cannot change status of a Paid item" if $item->get('vendorPayoutStatus') eq 'Paid';
     
        $item->update({ vendorPayoutStatus => $status });
     }
@@ -499,7 +499,7 @@ sub www_payoutDataAsJSON {
     
     my $sql         = 
         "select t1.* from transactionItem as t1 join transaction as t2 on t1.transactionId=t2.transactionId "
-        ." where vendorId=? and vendorPayoutAmount > 0 and vendorPayoutStatus <> 'Payed' order by t2.orderNumber";
+        ." where vendorId=? and vendorPayoutAmount > 0 and vendorPayoutStatus <> 'Paid' order by t2.orderNumber";
     my $placeholders =  [ $vendorId ];
 
     my $paginator   = WebGUI::Paginator->new( $session, '', $rowsPerPage, '', $pageNumber ); 

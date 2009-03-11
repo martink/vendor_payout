@@ -40,7 +40,7 @@ sub addTransactionItemFlags {
     my $session = shift;
     print "Adding columns for vendor payout tracking to transaction items..." unless $quiet;
     
-    $session->db->write('alter table transactionItem add column vendorPayoutStatus char(10) default \'NotPayed\'');
+    $session->db->write('alter table transactionItem add column vendorPayoutStatus char(10) default \'NotPaid\'');
     $session->db->write('alter table transactionItem add column vendorPayoutAmount float (6,2) default 0.00');
 
     print "Done.\n" unless $quiet;
