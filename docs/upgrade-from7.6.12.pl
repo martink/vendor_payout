@@ -31,7 +31,8 @@ GetOptions(
 
 my $session = start( $webguiRoot, $configFile );
 
-addTransactionItemFlags( $session );
+#addTransactionItemFlags( $session );
+createVendorAcccountPluginSettings( $session );
 
 finish($session);
 
@@ -46,6 +47,17 @@ sub addTransactionItemFlags {
     print "Done.\n" unless $quiet;
 }
 
+#----------------------------------------------------------------------------
+sub createVendorAcccountPluginSettings {
+    my $session = shift;
+    print "Creating default settings for the vendor account plugin..." unless $quiet;
+
+    $session->setting->add('vendorViewTemplateId', 'nOqabSYjvxZQLAEJsdPmrg');
+    $session->setting->add('vendorLayoutTemplateId', '');
+    $session->setting->add('vendorStyleTemplateId', '');
+
+    print "Done.\n" unless $quiet;
+}
 
 #----------------------------------------------------------------------------
 sub start {
